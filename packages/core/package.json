@@ -1,5 +1,5 @@
 {
-  "name": "@opengate/core",
+  "name": "@ymstar/opengate-core",
   "version": "0.2.0",
   "type": "module",
   "main": "./dist/index.js",
@@ -14,7 +14,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@opengate/shared": "0.2.0",
+    "@ymstar/opengate-shared": "0.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "files": ["dist"],

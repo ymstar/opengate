@@ -1,4 +1,4 @@
-import { StdioProxy, HttpProxy } from "@opengate/core";
+import { StdioProxy, HttpProxy } from "@ymstar/opengate-core";
 import { loadProxyConfig } from "../config/loader.js";
 
 export interface StartOptions {

@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import yaml from "js-yaml";
-import type { PolicyConfig } from "@opengate/core";
+import type { PolicyConfig } from "@ymstar/opengate-core";
 
 export interface ProxyConfig {
   policy?: PolicyConfig;

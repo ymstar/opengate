@@ -43,7 +43,7 @@ The MCP protocol has **no per-tool authorization**. Tool annotations (`readOnlyH
 ### Install
 
 ```bash
-npm install -g @opengate/cli
+npm install -g @ymstar/opengate-cli
 ```
 
 ### Generate a default policy

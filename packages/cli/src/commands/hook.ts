@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { PolicyEngine, type PolicyConfig, type ToolCallContext } from "@opengate/core";
+import { PolicyEngine, type PolicyConfig, type ToolCallContext } from "@ymstar/opengate-core";
 import { loadPolicyFile } from "../config/loader.js";
 
 interface HookInput {

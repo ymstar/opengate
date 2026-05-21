@@ -1,5 +1,5 @@
 {
-  "name": "@opengate/cli",
+  "name": "@ymstar/opengate-cli",
   "version": "0.2.0",
   "type": "module",
   "bin": {
@@ -9,8 +9,8 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@opengate/core": "0.2.0",
-    "@opengate/shared": "0.2.0",
+    "@ymstar/opengate-core": "0.2.0",
+    "@ymstar/opengate-shared": "0.2.0",
     "js-yaml": "^4.1.0"
   },
   "devDependencies": {

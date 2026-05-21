@@ -72,5 +72,5 @@ export function initCommand(options: { output?: string }): void {
   console.log('         command: "npx"');
   console.log('         args: ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/dir"]');
   console.log("  3. Point your MCP client (e.g. Claude Code) to OpenGate:");
-  console.log('       "command": "npx", "args": ["-y", "@opengate/cli", "--config", "./opengate-filesystem.yaml"]');
+  console.log('       "command": "npx", "args": ["-y", "@ymstar/opengate-cli", "--config", "./opengate-filesystem.yaml"]');
 }
