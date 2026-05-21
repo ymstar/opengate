@@ -59,10 +59,49 @@ export function loadPolicyFile(policyPath: string): PolicyConfig {
   }
 
   const raw = readFileSync(policyPath, "utf-8");
-  const config = yaml.load(raw) as PolicyConfig;
+  const config = yaml.load(raw) as Record<string, unknown>;
 
   validatePolicy(config);
-  return config;
+  return resolvePolicyComposition(config as PolicyConfig, dirname(policyPath));
+}
+
+function resolvePolicyComposition(config: PolicyConfig, baseDir: string): PolicyConfig {
+  const c = config as unknown as Record<string, unknown>;
+  let resolvedRules = [...(config.rules ?? [])];
+  let resolvedDefault = config.default;
+  let resolvedSettings = config.settings;
+
+  // Handle 'extends' - inherit from a parent policy
+  if (c.extends) {
+    const parentPath = resolve(baseDir, c.extends as string);
+    const parent = loadPolicyFile(parentPath);
+    // Child rules override parent rules (child first)
+    resolvedRules = [...resolvedRules, ...parent.rules];
+    // Child default overrides parent default only if explicitly set
+    if (!c.default) resolvedDefault = parent.default;
+    // Merge settings (child overrides parent)
+    if (parent.settings && resolvedSettings) {
+      resolvedSettings = { ...parent.settings, ...resolvedSettings };
+    } else if (parent.settings) {
+      resolvedSettings = parent.settings;
+    }
+  }
+
+  // Handle 'imports' - merge rules from multiple files
+  if (c.imports && Array.isArray(c.imports)) {
+    for (const importPath of c.imports) {
+      const importFullPath = resolve(baseDir, importPath as string);
+      const imported = loadPolicyFile(importFullPath);
+      resolvedRules = [...resolvedRules, ...imported.rules];
+    }
+  }
+
+  return {
+    ...config,
+    default: resolvedDefault,
+    rules: resolvedRules,
+    settings: resolvedSettings,
+  };
 }
 
 function validatePolicy(config: unknown): asserts config is PolicyConfig {

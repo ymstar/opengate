@@ -85,6 +85,88 @@ In Claude Code's `settings.json` (or MCP config):
 
 That's it. Every tool call now goes through OpenGate's policy engine.
 
+## Commands
+
+### `opengate init`
+
+Generate a default policy file:
+
+```bash
+opengate init                    # creates ./opengate.yaml
+opengate init -o my-policy.yaml  # custom output path
+```
+
+### `opengate start`
+
+Start the MCP security proxy (default command):
+
+```bash
+# Stdio mode (for local MCP servers)
+opengate start --config ./opengate-filesystem.yaml
+
+# HTTP mode (for remote MCP servers)
+opengate start --transport http --port 4000 --upstream http://server:3000/mcp --policy ./opengate.yaml
+
+# Inline server command
+opengate start --server-command npx --server-args "-y,@modelcontextprotocol/server-filesystem,/tmp"
+```
+
+### `opengate scan`
+
+Scan MCP configurations for security issues:
+
+```bash
+opengate scan                        # auto-detect config directory
+opengate scan --target ~/.claude     # specific directory
+opengate scan --format json          # JSON output
+```
+
+Detects:
+- Hardcoded API keys and tokens (GitHub, OpenAI, Anthropic, AWS, Slack)
+- Overly permissive tool allowlists
+- Unpinned MCP server packages (supply chain risk)
+- Unencrypted remote server connections
+- Dangerous CLI flags (`--dangerously-skip-permissions`)
+
+### `opengate dashboard`
+
+Launch a web dashboard for audit logs:
+
+```bash
+opengate dashboard                           # default port 3939
+opengate dashboard --port 8080 --audit-log ./audit.jsonl
+```
+
+Features:
+- Real-time log streaming (auto-refresh every 5s)
+- Decision breakdown (allowed/blocked/approved)
+- Top tools by call count
+- Full audit log table with filtering
+
+### `opengate hook`
+
+Run as a Claude Code PreToolUse hook (no proxy needed):
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "opengate hook --policy ./opengate.yaml"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Exit codes: `0` = allow, `2` = block.
+
 ## Policy Reference
 
 Policies are defined in YAML. Rules are evaluated top-to-bottom; first match wins.
@@ -145,6 +227,51 @@ rules:
       timeout: 30
 ```
 
+### Policy Composition
+
+Policies can inherit from other policies:
+
+```yaml
+# strict.yaml
+version: "1"
+default: deny
+rules:
+  - id: "allow-read-only"
+    match:
+      tool:
+        annotations:
+          readOnlyHint: true
+    action: allow
+
+# project.yaml - extends strict.yaml
+version: "1"
+extends: ./strict.yaml
+default: deny
+rules:
+  - id: "allow-project-writes"
+    match:
+      tool:
+        name: "Write"
+        arguments:
+          path:
+            startsWith: "/my/project/"
+    action: allow
+```
+
+Import rules from multiple files:
+
+```yaml
+version: "1"
+default: deny
+imports:
+  - ./base-rules.yaml
+  - ./team-rules.yaml
+rules:
+  - id: "project-specific"
+    match: { tool: { name: "*" } }
+    action: allow
+```
+
 ### Match Types
 
 **Tool name matching:**
@@ -177,7 +304,7 @@ rules:
 
 ## Audit Logging
 
-Every tool call is logged with:
+Every tool call is logged:
 
 ```json
 {
@@ -197,27 +324,7 @@ View logs:
 
 ```bash
 cat audit.jsonl | jq .
-```
-
-## CLI Reference
-
-```
-opengate [command] [options]
-
-Commands:
-  start    Start the MCP security proxy (default)
-  init     Generate a default policy file
-
-Options (start):
-  -c, --config <path>         Config YAML (policy + server definition)
-  -p, --policy <path>         Policy YAML file
-  --server-command <cmd>      MCP server command to proxy
-  --server-args <args>        Comma-separated server arguments
-  --audit-log <path>          Audit log output path
-  -v, --verbose               Log to stderr
-
-Options (init):
-  -o, --output <path>         Output path (default: opengate.yaml)
+opengate dashboard  # visual dashboard
 ```
 
 ## Architecture

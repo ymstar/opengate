@@ -1,4 +1,5 @@
 export { StdioProxy, type StdioProxyOptions } from "./proxy/stdio-proxy.js";
+export { HttpProxy, type HttpProxyOptions } from "./proxy/http-proxy.js";
 export { PolicyEngine } from "./policy/engine.js";
 export { matchGlob, matchString, matchArgument, matchArguments } from "./policy/matcher.js";
 export { AuditLogger, type AuditLoggerOptions } from "./logger/audit-log.js";

@@ -3,6 +3,9 @@
 import { parseArgs } from "node:util";
 import { startCommand } from "./commands/start.js";
 import { initCommand } from "./commands/init.js";
+import { scanCommand } from "./commands/scan.js";
+import { dashboardCommand } from "./commands/dashboard.js";
+import { hookCommand } from "./commands/hook.js";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -13,6 +16,9 @@ const { values, positionals } = parseArgs({
     "server-args": { type: "string" },
     "audit-log": { type: "string" },
     output: { type: "string", short: "o" },
+    target: { type: "string", short: "t" },
+    port: { type: "string" },
+    format: { type: "string", short: "f" },
     verbose: { type: "boolean", short: "v" },
     help: { type: "boolean", short: "h" },
   },
@@ -44,6 +50,28 @@ async function main() {
       initCommand({ output: values.output as string | undefined });
       break;
 
+    case "scan":
+      scanCommand({
+        target: values.target as string | undefined,
+        format: values.format as string | undefined,
+      });
+      break;
+
+    case "dashboard":
+      dashboardCommand({
+        port: values.port ? parseInt(values.port as string, 10) : undefined,
+        auditLog: values["audit-log"] as string | undefined,
+      });
+      break;
+
+    case "hook":
+      if (!values.policy) {
+        console.error("Error: --policy is required for hook command");
+        process.exit(1);
+      }
+      hookCommand({ policy: values.policy as string });
+      break;
+
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -59,32 +87,40 @@ Usage:
   opengate [command] [options]
 
 Commands:
-  start    Start the MCP security proxy (default)
-  init     Generate a default policy file
+  start       Start the MCP security proxy (default)
+  init        Generate a default policy file
+  scan        Scan MCP configurations for security issues
+  dashboard   Launch audit log web dashboard
+  hook        Run as a Claude Code PreToolUse hook
 
 Options (start):
-  -c, --config <path>         Path to config YAML file (contains policy + server definition)
-  -p, --policy <path>         Path to policy YAML file (alternative to --config)
-  --server-command <cmd>      MCP server command to proxy (alternative to --config)
+  -c, --config <path>         Config YAML (policy + server definition)
+  -p, --policy <path>         Policy YAML file
+  --server-command <cmd>      MCP server command to proxy
   --server-args <args>        Comma-separated server arguments
-  --audit-log <path>          Path to audit log file
-  -v, --verbose               Log audit entries to stderr
+  --audit-log <path>          Audit log output path
+  -v, --verbose               Log to stderr
 
 Options (init):
-  -o, --output <path>         Output path for generated policy file (default: opengate.yaml)
+  -o, --output <path>         Output path (default: opengate.yaml)
+
+Options (scan):
+  -t, --target <path>         Config directory to scan (auto-detected)
+  -f, --format <format>       Output format: text (default), json
+
+Options (dashboard):
+  --port <port>               Dashboard port (default: 3939)
+  --audit-log <path>          Audit log path (default: ./audit.jsonl)
+
+Options (hook):
+  -p, --policy <path>         Policy YAML file (required)
 
 Examples:
-  # Generate a default policy
   opengate init
-
-  # Start with a config file
+  opengate scan
   opengate start --config ./opengate-filesystem.yaml
-
-  # Start with inline server command
-  opengate start --server-command npx --server-args "-y,@modelcontextprotocol/server-filesystem,/tmp"
-
-  # Start with policy enforcement
-  opengate start --config ./opengate-filesystem.yaml --policy ./opengate.yaml
+  opengate dashboard --port 3939 --audit-log ./audit.jsonl
+  opengate hook --policy ./opengate.yaml
 `);
 }
 
