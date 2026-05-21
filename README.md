@@ -1,34 +1,41 @@
 # OpenGate
 
-**MCP Security Gateway for AI Agents**
+<p align="center">
+  <strong>MCP Security Gateway for AI Agents</strong>
+</p>
 
-OpenGate is an open-source security proxy that sits between AI agent clients (Claude Code, Cursor, Gemini CLI, etc.) and MCP servers. It intercepts every tool call, evaluates declarative security policies, and logs audit trails — giving you control over what your AI agents can do.
+<p align="center">
+  <a href="https://www.npmjs.com/package/@ymstar/opengate-cli"><img src="https://img.shields.io/npm/v/@ymstar/opengate-cli?style=flat-square&logo=npm&color=cb3837" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@ymstar/opengate-cli"><img src="https://img.shields.io/npm/dt/@ymstar/opengate-cli?style=flat-square&logo=npm&color=cb3837" alt="npm downloads"></a>
+  <a href="https://github.com/ymstar/opengate/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ymstar/opengate/ci.yml?style=flat-square&logo=github&label=CI" alt="CI"></a>
+  <a href="https://github.com/ymstar/opengate/blob/master/LICENSE"><img src="https://img.shields.io/github/license/ymstar/opengate?style=flat-square&color=blue" alt="License"></a>
+  <a href="https://github.com/ymstar/opengate"><img src="https://img.shields.io/github/stars/ymstar/opengate?style=flat-square&logo=github" alt="GitHub stars"></a>
+</p>
+
+---
+
+OpenGate sits between AI agent clients (Claude Code, Cursor, Gemini CLI, etc.) and MCP servers. It intercepts every tool call, evaluates declarative security policies, and logs audit trails — giving you control over what your AI agents can do.
 
 ```
-MCP Client (Claude Code / Cursor / Any Agent)
-    │ stdin/stdout (JSON-RPC)
-    ▼
-┌─────────────────────────────┐
-│  OpenGate                   │
-│  ┌───────────────────────┐  │
-│  │ Policy Engine         │  │  ← opengate.yaml
-│  │ - glob/regex matching │  │
-│  │ - argument filtering  │  │
-│  │ - rate limiting       │  │
-│  │ - approval flow       │  │
-│  └───────────────────────┘  │
-│  ┌───────────────────────┐  │
-│  │ Audit Logger          │  │  → audit.jsonl
-│  └───────────────────────┘  │
-└─────────────────────────────┘
-    │ spawn + stdin/stdout
-    ▼
-Real MCP Server (child process)
+  MCP Client (Claude Code / Cursor / Any Agent)
+          │ stdin/stdout (JSON-RPC)
+          ▼
+  ┌───────────────────────────┐
+  │        OpenGate           │
+  │  ┌─────────────────────┐  │
+  │  │    Policy Engine    │  │  ← opengate.yaml
+  │  │  glob · regex · arg │  │
+  │  │  rate-limit · audit │  │
+  │  └─────────────────────┘  │
+  └───────────────────────────┘
+          │ spawn
+          ▼
+  Real MCP Server (child process)
 ```
 
 ## Why OpenGate?
 
-The MCP protocol has **no per-tool authorization**. Tool annotations (`readOnlyHint`, `destructiveHint`) are self-declared by servers and explicitly untrusted. Existing security tools cover only one layer:
+The MCP protocol has **no per-tool authorization**. Tool annotations (`readOnlyHint`, `destructiveHint`) are self-declared by servers and explicitly untrusted. Existing security tools each cover only one layer:
 
 | Tool | What it does | What it misses |
 |------|-------------|----------------|
@@ -46,19 +53,24 @@ The MCP protocol has **no per-tool authorization**. Tool annotations (`readOnlyH
 npm install -g @ymstar/opengate-cli
 ```
 
-### Generate a default policy
+Or run directly with npx:
+
+```bash
+npx @ymstar/opengate-cli init
+```
+
+### 1. Generate a default policy
 
 ```bash
 opengate init
 ```
 
-This creates `opengate.yaml` with example rules.
+Creates `opengate.yaml` with example rules.
 
-### Create a server config
-
-Create `opengate-filesystem.yaml`:
+### 2. Create a server config
 
 ```yaml
+# opengate-filesystem.yaml
 policy: ./opengate.yaml
 server:
   command: npx
@@ -68,9 +80,7 @@ server:
     - "/path/to/your/project"
 ```
 
-### Point your MCP client to OpenGate
-
-In Claude Code's `settings.json` (or MCP config):
+### 3. Point your MCP client to OpenGate
 
 ```json
 {
@@ -83,37 +93,19 @@ In Claude Code's `settings.json` (or MCP config):
 }
 ```
 
-That's it. Every tool call now goes through OpenGate's policy engine.
+Every tool call now goes through OpenGate's policy engine.
 
 ## Commands
 
-### `opengate init`
-
-Generate a default policy file:
-
-```bash
-opengate init                    # creates ./opengate.yaml
-opengate init -o my-policy.yaml  # custom output path
-```
-
-### `opengate start`
-
-Start the MCP security proxy (default command):
-
-```bash
-# Stdio mode (for local MCP servers)
-opengate start --config ./opengate-filesystem.yaml
-
-# HTTP mode (for remote MCP servers)
-opengate start --transport http --port 4000 --upstream http://server:3000/mcp --policy ./opengate.yaml
-
-# Inline server command
-opengate start --server-command npx --server-args "-y,@modelcontextprotocol/server-filesystem,/tmp"
-```
+| Command | Description |
+|---------|-------------|
+| `opengate init` | Generate a default policy file |
+| `opengate start` | Start the MCP security proxy (default) |
+| `opengate scan` | Scan MCP configurations for security issues |
+| `opengate dashboard` | Launch audit log web dashboard |
+| `opengate hook` | Run as a Claude Code PreToolUse hook |
 
 ### `opengate scan`
-
-Scan MCP configurations for security issues:
 
 ```bash
 opengate scan                        # auto-detect config directory
@@ -121,72 +113,52 @@ opengate scan --target ~/.claude     # specific directory
 opengate scan --format json          # JSON output
 ```
 
-Detects:
-- Hardcoded API keys and tokens (GitHub, OpenAI, Anthropic, AWS, Slack)
-- Overly permissive tool allowlists
-- Unpinned MCP server packages (supply chain risk)
-- Unencrypted remote server connections
-- Dangerous CLI flags (`--dangerously-skip-permissions`)
+Detects: hardcoded API keys, overly permissive tool lists, unpinned packages, unencrypted connections, dangerous CLI flags.
 
 ### `opengate dashboard`
 
-Launch a web dashboard for audit logs:
-
 ```bash
-opengate dashboard                           # default port 3939
-opengate dashboard --port 8080 --audit-log ./audit.jsonl
+opengate dashboard                        # default port 3939
+opengate dashboard --port 8080            # custom port
+opengate dashboard --audit-log ./log.jsonl
 ```
-
-Features:
-- Real-time log streaming (auto-refresh every 5s)
-- Decision breakdown (allowed/blocked/approved)
-- Top tools by call count
-- Full audit log table with filtering
 
 ### `opengate hook`
 
-Run as a Claude Code PreToolUse hook (no proxy needed):
+Use as a Claude Code PreToolUse hook (no proxy mode needed):
 
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "opengate hook --policy ./opengate.yaml"
-          }
-        ]
-      }
-    ]
+    "PreToolUse": [{
+      "matcher": ".*",
+      "hooks": [{
+        "type": "command",
+        "command": "opengate hook --policy ./opengate.yaml"
+      }]
+    }]
   }
 }
 ```
 
-Exit codes: `0` = allow, `2` = block.
-
 ## Policy Reference
 
-Policies are defined in YAML. Rules are evaluated top-to-bottom; first match wins.
+Rules are evaluated top-to-bottom; first match wins.
 
 ```yaml
 version: "1"
 name: "my-policy"
-default: deny          # "allow" or "deny" when no rule matches
+default: deny
 
 settings:
   rateLimit:
-    window: 60         # seconds
-    maxCalls: 100      # per tool per window
+    window: 60
+    maxCalls: 100
   audit:
     enabled: true
     path: "./audit.jsonl"
-    format: jsonl
 
 rules:
-  # Allow read-only tools
   - id: "allow-read-only"
     match:
       tool:
@@ -194,7 +166,6 @@ rules:
           readOnlyHint: true
     action: allow
 
-  # Block destructive shell commands
   - id: "block-rm-rf"
     match:
       tool:
@@ -203,9 +174,8 @@ rules:
           command:
             regex: "rm\\s+-rf|mkfs|dd\\s+if="
     action: block
-    reason: "Destructive command detected"
+    reason: "Destructive command"
 
-  # Rate limit GitHub API
   - id: "github-rate-limit"
     match:
       server: "github"
@@ -216,7 +186,6 @@ rules:
       window: 60
       maxCalls: 30
 
-  # Require approval for deletions
   - id: "approve-deletions"
     match:
       tool:
@@ -227,65 +196,16 @@ rules:
       timeout: 30
 ```
 
-### Policy Composition
-
-Policies can inherit from other policies:
-
-```yaml
-# strict.yaml
-version: "1"
-default: deny
-rules:
-  - id: "allow-read-only"
-    match:
-      tool:
-        annotations:
-          readOnlyHint: true
-    action: allow
-
-# project.yaml - extends strict.yaml
-version: "1"
-extends: ./strict.yaml
-default: deny
-rules:
-  - id: "allow-project-writes"
-    match:
-      tool:
-        name: "Write"
-        arguments:
-          path:
-            startsWith: "/my/project/"
-    action: allow
-```
-
-Import rules from multiple files:
-
-```yaml
-version: "1"
-default: deny
-imports:
-  - ./base-rules.yaml
-  - ./team-rules.yaml
-rules:
-  - id: "project-specific"
-    match: { tool: { name: "*" } }
-    action: allow
-```
-
 ### Match Types
 
-**Tool name matching:**
-
-| Type | Example | Matches |
-|------|---------|---------|
+| Tool Name | Example | Matches |
+|-----------|---------|---------|
 | Exact | `"Bash"` | Only "Bash" |
 | Glob | `"filesystem/*"` | "filesystem/read", "filesystem/write" |
 | Regex | `{ regex: ".*delete.*" }` | Any name containing "delete" |
 
-**Argument matching:**
-
-| Operator | Example | Description |
-|----------|---------|-------------|
+| Argument Operator | Example | Description |
+|-------------------|---------|-------------|
 | `startsWith` | `{ startsWith: "/safe/" }` | String prefix |
 | `endsWith` | `{ endsWith: ".js" }` | String suffix |
 | `contains` | `{ contains: "password" }` | Substring |
@@ -298,9 +218,32 @@ rules:
 
 | Action | Behavior |
 |--------|----------|
-| `allow` | Forward the tool call to the server |
-| `block` | Reject immediately with an error message |
-| `require-approval` | Prompt the user in terminal before proceeding |
+| `allow` | Forward to the server |
+| `block` | Reject with error message |
+| `require-approval` | Prompt user in terminal |
+
+### Policy Composition
+
+Inherit from a parent policy:
+
+```yaml
+version: "1"
+extends: ./strict.yaml
+rules:
+  - id: "project-override"
+    match: { tool: { name: "*" } }
+    action: allow
+```
+
+Import rules from multiple files:
+
+```yaml
+version: "1"
+imports:
+  - ./base-rules.yaml
+  - ./team-rules.yaml
+rules: []
+```
 
 ## Audit Logging
 
@@ -314,17 +257,13 @@ Every tool call is logged:
   "arguments": { "path": "/tmp/test.txt" },
   "decision": "allowed",
   "matchedRule": "allow-writes",
-  "reason": "Matched rule 'allow-writes'",
-  "durationMs": 42,
-  "resultSummary": "File written successfully"
+  "durationMs": 42
 }
 ```
 
-View logs:
-
 ```bash
 cat audit.jsonl | jq .
-opengate dashboard  # visual dashboard
+opengate dashboard
 ```
 
 ## Architecture
@@ -333,11 +272,11 @@ OpenGate intercepts at the **MCP application layer** using the official MCP SDK:
 
 1. Spawns the real MCP server as a child process
 2. Discovers all tools via `tools/list`
-3. Registers each tool on a proxy `McpServer`
+3. Registers each tool on a proxy server
 4. On each `tools/call`, evaluates the policy engine before forwarding
 5. Logs every decision to the audit trail
 
-This makes OpenGate transparent to both client and server — neither needs to know it's there.
+Transparent to both client and server — neither needs to know it's there.
 
 ## Development
 
@@ -351,4 +290,4 @@ npm test
 
 ## License
 
-MIT
+[MIT](LICENSE)
