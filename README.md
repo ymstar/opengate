@@ -104,6 +104,7 @@ Every tool call now goes through OpenGate's policy engine.
 | `opengate scan` | Scan MCP configurations for security issues |
 | `opengate dashboard` | Launch audit log web dashboard |
 | `opengate hook` | Run as a Claude Code PreToolUse hook |
+| `opengate logs` | View and filter audit logs |
 
 ### `opengate scan`
 
@@ -139,6 +140,16 @@ Use as a Claude Code PreToolUse hook (no proxy mode needed):
     }]
   }
 }
+```
+
+### `opengate logs`
+
+```bash
+opengate logs                                    # default: ./audit.jsonl
+opengate logs --tool delete                      # filter by tool name
+opengate logs --decision blocked                 # filter by decision
+opengate logs --server github --limit 20         # last 20 github calls
+opengate logs --format json                      # JSON output
 ```
 
 ## Policy Reference

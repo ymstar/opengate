@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.0 (2026-05-21)
+
+### Features
+
+- **Audit log viewer**: `opengate logs` command with filtering by tool, decision, server, and limit
+- **HTTP proxy tests**: Integration tests for health endpoint, JSON-RPC forwarding, and policy blocking
+- **Config loader tests**: 13 tests covering YAML parsing, validation, extends/imports composition
+
+### Improvements
+
+- Policy validation now allows missing `default` when using `extends` (inherited from parent)
+- 54 total tests (up from 36)
+
 ## 0.2.0 (2026-05-21)
 
 ### Features

@@ -108,7 +108,8 @@ function validatePolicy(config: unknown): asserts config is PolicyConfig {
   const c = config as Record<string, unknown>;
 
   if (!c.version) throw new Error("Policy must specify 'version'");
-  if (!c.default || (c.default !== "allow" && c.default !== "deny")) {
+  // default is required unless inheriting via extends
+  if (!c.extends && (!c.default || (c.default !== "allow" && c.default !== "deny"))) {
     throw new Error("Policy must specify 'default' as 'allow' or 'deny'");
   }
   if (!Array.isArray(c.rules)) {

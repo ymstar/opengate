@@ -6,6 +6,7 @@ import { initCommand } from "./commands/init.js";
 import { scanCommand } from "./commands/scan.js";
 import { dashboardCommand } from "./commands/dashboard.js";
 import { hookCommand } from "./commands/hook.js";
+import { logsCommand } from "./commands/logs.js";
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -20,6 +21,10 @@ const { values, positionals } = parseArgs({
     port: { type: "string" },
     format: { type: "string", short: "f" },
     verbose: { type: "boolean", short: "v" },
+    tool: { type: "string" },
+    decision: { type: "string" },
+    server: { type: "string" },
+    limit: { type: "string" },
     help: { type: "boolean", short: "h" },
   },
   allowPositionals: true,
@@ -72,6 +77,17 @@ async function main() {
       hookCommand({ policy: values.policy as string });
       break;
 
+    case "logs":
+      logsCommand({
+        path: values["audit-log"] as string | undefined,
+        format: values.format as string | undefined,
+        tool: values.tool as string | undefined,
+        decision: values.decision as string | undefined,
+        server: values.server as string | undefined,
+        limit: values.limit as string | undefined,
+      });
+      break;
+
     default:
       console.error(`Unknown command: ${command}`);
       printHelp();
@@ -92,6 +108,7 @@ Commands:
   scan        Scan MCP configurations for security issues
   dashboard   Launch audit log web dashboard
   hook        Run as a Claude Code PreToolUse hook
+  logs        View and filter audit logs
 
 Options (start):
   -c, --config <path>         Config YAML (policy + server definition)
@@ -115,12 +132,23 @@ Options (dashboard):
 Options (hook):
   -p, --policy <path>         Policy YAML file (required)
 
+Options (logs):
+  --audit-log <path>          Audit log path (default: ./audit.jsonl)
+  -f, --format <format>       Output format: table (default), json, jsonl
+  --tool <name>               Filter by tool name (substring match)
+  --decision <value>          Filter by decision: allowed, blocked, approved
+  --server <name>             Filter by server name
+  --limit <n>                 Show last N entries
+
 Examples:
   opengate init
   opengate scan
   opengate start --config ./opengate-filesystem.yaml
   opengate dashboard --port 3939 --audit-log ./audit.jsonl
   opengate hook --policy ./opengate.yaml
+  opengate logs
+  opengate logs --tool delete --decision blocked --limit 20
+  opengate logs --format json
 `);
 }
 
