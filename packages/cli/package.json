@@ -1,0 +1,21 @@
+{
+  "name": "@opengate/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "opengate": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@opengate/core": "0.1.0",
+    "@opengate/shared": "0.1.0",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9"
+  },
+  "files": ["dist"],
+  "license": "MIT"
+}

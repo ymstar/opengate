@@ -1,0 +1,73 @@
+# OpenGate Policy Configuration
+# Documentation: https://github.com/opengate/opengate
+
+version: "1"
+name: "example-policy"
+description: "Example security policy demonstrating OpenGate capabilities"
+
+# Default action when no rule matches: "allow" or "deny"
+default: deny
+
+settings:
+  rateLimit:
+    window: 60
+    maxCalls: 100
+  audit:
+    enabled: true
+    path: "./audit.jsonl"
+    format: jsonl
+    logArguments: true
+    maxArgumentLength: 1024
+
+rules:
+  # --- Allow read-only tools ---
+  - id: "allow-read-only"
+    description: "Allow all read-only tools without restriction"
+    match:
+      tool:
+        annotations:
+          readOnlyHint: true
+    action: allow
+
+  # --- Block destructive shell commands ---
+  - id: "block-dangerous-commands"
+    description: "Block shell commands that could be destructive"
+    match:
+      tool:
+        name: "Bash"
+        arguments:
+          command:
+            regex: "rm\\s+-rf|mkfs|dd\\s+if="
+    action: block
+    reason: "Destructive command detected"
+
+  # --- Rate limit GitHub API calls ---
+  - id: "rate-limit-github"
+    description: "Rate limit GitHub API calls"
+    match:
+      server: "github"
+      tool:
+        name: "*"
+    action: allow
+    rateLimit:
+      window: 60
+      maxCalls: 30
+
+  # --- Require approval for deletions ---
+  - id: "approve-deletions"
+    description: "Require human approval for any delete operation"
+    match:
+      tool:
+        name:
+          regex: ".*delete.*|.*remove.*"
+    action: require-approval
+    approval:
+      timeout: 30
+
+  # --- Allow everything else (override default deny) ---
+  - id: "allow-rest"
+    description: "Allow all other tool calls"
+    match:
+      tool:
+        name: "*"
+    action: allow

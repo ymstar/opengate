@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts
+!vitest.config.ts
+audit.jsonl
+.DS_Store
