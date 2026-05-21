@@ -164,7 +164,7 @@ rules:
 `
       );
       const policy = loadPolicyFile(mainPath);
-      expect(policy.rules.map((r) => r.id)).toEqual(["main-rule", "base1-rule", "base2-rule"]);
+      expect(policy.rules.map((r: { id: string }) => r.id)).toEqual(["main-rule", "base1-rule", "base2-rule"]);
     });
   });
 
