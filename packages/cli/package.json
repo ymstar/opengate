@@ -16,6 +16,11 @@
   "devDependencies": {
     "@types/js-yaml": "^4.0.9"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ymstar/opengate.git",
+    "directory": "packages/cli"
+  },
   "files": ["dist"],
   "license": "MIT"
 }

@@ -17,6 +17,11 @@
     "@ymstar/opengate-shared": "0.2.0",
     "@modelcontextprotocol/sdk": "^1.29.0"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ymstar/opengate.git",
+    "directory": "packages/core"
+  },
   "files": ["dist"],
   "license": "MIT"
 }
