@@ -5,3 +5,4 @@ dist/
 !vitest.config.ts
 audit.jsonl
 .DS_Store
+.test-tmp-*

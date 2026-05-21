@@ -21,25 +21,108 @@ export class StdioProxy {
   private policyEngine: PolicyEngine | null;
   private auditLogger: AuditLogger;
   private serverName: string;
+  private client: Client | null = null;
+  private clientTransport: StdioClientTransport | null = null;
+  private shuttingDown = false;
 
   constructor(options: StdioProxyOptions) {
     this.options = options;
     this.serverName = options.serverName ?? "upstream";
     this.policyEngine = options.policy ? new PolicyEngine(options.policy) : null;
     this.auditLogger = new AuditLogger(options.auditOptions);
+
+    this.setupSignalHandlers();
+  }
+
+  private setupSignalHandlers(): void {
+    const shutdown = async (signal: string) => {
+      if (this.shuttingDown) return;
+      this.shuttingDown = true;
+      process.stderr.write(`\n[OpenGate] Received ${signal}, shutting down...\n`);
+      await this.shutdown();
+      process.exit(0);
+    };
+
+    process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+
+    process.on("uncaughtException", (error) => {
+      process.stderr.write(`[OpenGate] Uncaught exception: ${error.message}\n`);
+      this.shutdown().finally(() => process.exit(1));
+    });
+
+    process.on("unhandledRejection", (reason) => {
+      process.stderr.write(`[OpenGate] Unhandled rejection: ${reason}\n`);
+    });
+  }
+
+  private async shutdown(): Promise<void> {
+    this.auditLogger.flush();
+
+    if (this.client) {
+      try {
+        await this.client.close();
+      } catch {
+        // ignore close errors during shutdown
+      }
+    }
+
+    if (this.clientTransport) {
+      try {
+        await this.clientTransport.close();
+      } catch {
+        // ignore close errors during shutdown
+      }
+    }
   }
 
   async start(): Promise<void> {
-    const clientTransport = new StdioClientTransport({
+    this.clientTransport = new StdioClientTransport({
       command: this.options.serverCommand,
       args: this.options.serverArgs,
       env: this.options.serverEnv as Record<string, string>,
     });
 
-    const client = new Client({ name: "opengate-proxy", version: "0.1.0" });
-    await client.connect(clientTransport);
+    this.client = new Client({ name: "opengate-proxy", version: "0.1.0" });
 
-    const { tools } = await client.listTools();
+    this.clientTransport.onerror = (error) => {
+      process.stderr.write(`[OpenGate] Upstream server error: ${error.message}\n`);
+    };
+
+    this.clientTransport.onclose = () => {
+      if (!this.shuttingDown) {
+        process.stderr.write("[OpenGate] Upstream server disconnected\n");
+        this.auditLogger.flush();
+        process.exit(1);
+      }
+    };
+
+    try {
+      await this.client.connect(this.clientTransport);
+    } catch (error) {
+      process.stderr.write(
+        `[OpenGate] Failed to connect to upstream server: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.stderr.write(`[OpenGate] Command: ${this.options.serverCommand} ${this.options.serverArgs.join(" ")}\n`);
+      process.exit(1);
+    }
+
+    let tools: Array<{
+      name: string;
+      description?: string;
+      inputSchema?: { properties?: Record<string, unknown>; required?: string[] };
+      annotations?: Record<string, unknown>;
+    }>;
+
+    try {
+      const result = await this.client.listTools();
+      tools = result.tools;
+    } catch (error) {
+      process.stderr.write(
+        `[OpenGate] Failed to list tools: ${error instanceof Error ? error.message : String(error)}\n`,
+      );
+      process.exit(1);
+    }
 
     const mcpServer = new McpServer({
       name: "opengate-proxy",
@@ -62,6 +145,13 @@ export class StdioProxy {
             )
           : {},
         async (args: Record<string, unknown>) => {
+          if (this.shuttingDown) {
+            return {
+              content: [{ type: "text" as const, text: "[OpenGate] Server is shutting down" }],
+              isError: true,
+            };
+          }
+
           const ctx: ToolCallContext = {
             toolName,
             arguments: args,
@@ -121,7 +211,7 @@ export class StdioProxy {
           }
 
           try {
-            const result = await client.callTool({ name: toolName, arguments: args });
+            const result = await this.client!.callTool({ name: toolName, arguments: args });
             const durationMs = Date.now() - startTime;
 
             const resultText = Array.isArray(result.content)
@@ -150,17 +240,26 @@ export class StdioProxy {
               isError: result.isError as boolean | undefined,
             };
           } catch (error) {
+            const durationMs = Date.now() - startTime;
+            const errorMsg = error instanceof Error ? error.message : String(error);
+
+            process.stderr.write(`[OpenGate] Tool call error (${toolName}): ${errorMsg}\n`);
+
             const entry: AuditEntry = {
               timestamp: new Date().toISOString(),
               serverName: this.serverName,
               toolName,
               arguments: args,
               decision: decision.action === "require-approval" ? "approved" : "allowed",
-              reason: `Error: ${error instanceof Error ? error.message : String(error)}`,
-              durationMs: Date.now() - startTime,
+              reason: `Error: ${errorMsg}`,
+              durationMs,
             };
             this.auditLogger.log(entry);
-            throw error;
+
+            return {
+              content: [{ type: "text" as const, text: `[OpenGate] Tool call failed: ${errorMsg}` }],
+              isError: true,
+            };
           }
         },
       );
@@ -198,11 +297,7 @@ export class StdioProxy {
       const onData = (chunk: Buffer) => {
         const input = chunk.toString().trim().toLowerCase();
         cleanup();
-        if (input === "y" || input === "yes") {
-          resolve(true);
-        } else {
-          resolve(false);
-        }
+        resolve(input === "y" || input === "yes");
       };
 
       const cleanup = () => {
